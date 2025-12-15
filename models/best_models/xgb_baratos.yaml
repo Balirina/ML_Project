@@ -1,0 +1,114 @@
+# ========== METADATOS DEL PROYECTO ==========
+project:
+  name: "ML_Project/Car_Price_Prediction"
+  author: "Irina Balica"
+  version: "1.0.0"
+  date_created: "2025-12-15"
+  description: "Modelo XGBoost optimizado para predicción de precios de coches"
+
+# ========== CONFIGURACIÓN DE DATOS ==========
+data:
+  paths:
+    raw: "data/raw/cars.csv"
+    processed: "data/processed/car_prices_procc.csv"
+  
+  preprocessing:
+    test_size: 0.2
+    random_state: 42
+    target_column: "Price"
+    
+  features:
+      - "Brand"
+      - "Model"
+      - "Price"
+      - "Country"
+      - "Kilometers"
+      - "Gearbox"
+      - "Year"
+      - "Fuel"
+      - "Power"
+      - "Seller"
+      - "Body Type"
+      - "Type"
+      - "Drivetrain"
+      - "Seats"
+      - "Doors"
+      - "Cylinders"
+      - "Color"
+      - "Upholstery"
+
+# ========== PARÁMETROS DEL MODELO XGBOOST ==========
+model:
+  name: "XGBoost_Regressor"
+  type: "xgboost.XGBRegressor"
+  
+  # Hiperparámetros optimizados
+  params:
+    objective: "reg:squarederror"
+    eval_metric: "mae"
+    learning_rate: 0.05
+    max_depth: 6
+    min_child_weight: 5
+    subsample: 0.8
+    colsample_bytree: 0.8
+    gamma: 0.1
+    reg_alpha: 0.1
+    reg_lambda: 1.0
+    random_state: 42
+    n_jobs: -1
+    verbosity: 0
+
+  # Configuración de entrenamiento
+  training:
+    num_boost_round: 3000
+    early_stopping_rounds: 200
+    validation_size: 0.1
+    eval_set: "test"
+    
+  # Grid para futura optimización
+  hyperparameter_grid:
+    learning_rate: [0.01, 0.05, 0.1]
+    max_depth: [4, 6, 8]
+    min_child_weight: [1, 3, 5]
+    subsample: [0.6, 0.8, 1.0]
+    colsample_bytree: [0.6, 0.8, 1.0]
+
+# ========== EVALUACIÓN ==========
+evaluation:
+  metrics:
+    - "MAE"
+    - "RMSE" 
+    - "R2"
+    - "MAPE"
+  
+  cross_validation:
+    enabled: true
+    cv_folds: 5
+    scoring: "neg_mean_absolute_error"
+  
+  thresholds:
+    mae_threshold: 2350  
+    outlier_threshold_std: 3.0
+
+# ========== GUARDADO DEL MODELO ==========
+persistence:
+  model:
+    format: "pkl"
+    path: "models/best_models/XGB_baratos_model.pkl"
+    versioned: true
+
+
+# ========== ENTORNO ==========
+environment:
+  python_version: "3.9+"
+  dependencies:
+    - "pandas>=1.4.0"
+    - "numpy>=1.21.0"
+    - "xgboost>=1.6.0"
+    - "scikit-learn>=1.0.0"
+    - "matplotlib>=3.5.0"
+    - "seaborn>=0.11.0"
+  
+  gpu:
+    enabled: false
+    device: "cuda:0"  # si se usa GPU
