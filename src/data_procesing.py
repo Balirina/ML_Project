@@ -43,6 +43,9 @@ def codificar_Brand_Model(df):
 def rellenar_nans(df):
     # borrar las lineas que tienen más de 3 columnas vacias
     df = df[df.isna().sum(axis=1) <= 3]
+    
+    # cambiar en numero de puertas a 5 donde por error se guardo 35
+    df.loc[df['Doors'] == 35, 'Doors'] = 5
 
     # cambiar el año a 2025 y los kilometros a 0 si no existen y el coche es de tipo nuevo
     df.loc[df['Year'].isna() & (df['Type'] == 'New') & (df['Kilometers'].isna()), 'Kilometers'] = 0
