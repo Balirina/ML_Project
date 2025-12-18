@@ -1,8 +1,6 @@
 import pandas as pd
 import numpy as np
-import seaborn as sns
-import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split, GridSearchCV, RandomizedSearchCV
+from sklearn.model_selection import train_test_split
 from scipy.stats import randint, uniform
 from sklearn.linear_model import LinearRegression
 from sklearn import metrics
@@ -14,40 +12,49 @@ from skimpy import skim
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans, DBSCAN
 from sklearn.feature_selection import SelectKBest, f_regression
-from sklearn.pipeline import Pipeline
 import lightgbm as lgb
 import xgboost as xgb
-from sklearn.preprocessing import LabelEncoder
-from xgboost import XGBRegressor
 import pickle
 
-# Cargar los 2 dataset
-df_baratos = pd.read_csv('../data/processed/coches_baratos_procc.csv')
-df_caros = pd.read_csv('../data/processed/coches_caros_procc.csv')
+# función para cargar el dataset
+def cargar_dataset(path):
+    df = pd.read_csv(path)
+    return df
 
-def entrnar_modelos(df):
+# ==========================================================
+# funcion para dividir el dataframe en train y test
+# ==========================================================
+def dividir_train_test(df):
     X = df.drop(columns = ['Price'])
     y = df['Price']
-    
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.30, random_state = 42)
-    
-    # ==========================================================
-    # Probar el modelo Linear Regression
-    # ==========================================================
+    return X_train, X_test, y_train, y_test
+
+# ==========================================================
+# funcion para escalar features
+# ==========================================================
+def escalar_features(X_train, X_test):
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+    return X_train_scaled, X_test_scaled
+
+# ==========================================================
+# funcion para entrenar el modelo Linear Regression
+# ==========================================================
+def entrenar_LR(X_train, X_test, y_train, y_test):
     lm = LinearRegression()
     lm.fit(X_train, y_train)
     predictions = lm.predict(X_test)
-    pickle.dump(lm, open("../models/Linear_Regression_model.pkl", "wb"))
     
     # Probar identificar outliers y borrarlos
-    # Identificar outliers
     residuals = y_test - predictions
     std_residuals = np.std(residuals)
     outlier_threshold = 3 * std_residuals
-    outlier_indices = np.where(np.abs(residuals) > outlier_threshold)[0]
     
     X_train_clean = X_train.copy()
     y_train_clean = y_train.copy()
+    
     # Identificar outliers en entrenamiento también
     train_pred = lm.predict(X_train)
     train_residuals = y_train - train_pred
@@ -60,40 +67,45 @@ def entrnar_modelos(df):
         # Reentrenar modelo
         model_clean = LinearRegression()
         model_clean.fit(X_train_clean, y_train_clean)
-        y_pred_clean = model_clean.predict(X_test)
-    
-    # Escalar features
-    scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
-    
-    # ==========================================================
-    # Ridge Regression (L2)
-    # ==========================================================
+        pred = model_clean.predict(X_test)
+    # guardar el modelo
+    #pickle.dump(lm, open("../models/Linear_Regression_model.pkl", "wb"))
+    return model_clean, pred
+
+# ==========================================================
+# funcion para entrenar Ridge Regression (L2)
+# ==========================================================
+def entrenar_Ridge(X_train_scaled, X_test_scaled, y_train):
     ridge = Ridge(alpha=1.0)
     ridge.fit(X_train_scaled, y_train)
-    y_pred_ridge = ridge.predict(X_test_scaled)
-    pickle.dump(ridge, open("../models/Ridge_model.pkl", "wb"))
-    
-    # ==========================================================
-    # Lasso Regression (L1)
-    # ==========================================================
+    pred = ridge.predict(X_test_scaled)
+    #pickle.dump(ridge, open("../models/Ridge_model.pkl", "wb"))
+    return ridge, pred
+
+# ==========================================================
+# funcion para entrenar Lasso Regression (L1)
+# ==========================================================
+def entrenar_Lasso(X_train_scaled, X_test_scaled, y_train):
     lasso = Lasso(alpha=0.01, max_iter=10000)
     lasso.fit(X_train_scaled, y_train)
-    y_pred_lasso = lasso.predict(X_test_scaled)
-    pickle.dump(lasso, open("../models/Lasso_model.pkl", "wb"))
-    
-    # ==========================================================
-    #. ElasticNet (combinación L1 + L2)
-    # ==========================================================
+    pred = lasso.predict(X_test_scaled)
+    #pickle.dump(lasso, open("../models/Lasso_model.pkl", "wb"))
+    return lasso, pred
+
+# ==========================================================
+# funcion para entrenar ElasticNet (combinación L1 + L2)
+# ==========================================================
+def entrenar_elastic(X_train_scaled, X_test_scaled, y_train):
     elastic = ElasticNet(alpha=0.01, l1_ratio=0.5, max_iter=10000)
     elastic.fit(X_train_scaled, y_train)
-    y_pred_elastic = elastic.predict(X_test_scaled)
-    pickle.dump(elastic, open("../models/Elastic_Net_model.pkl", "wb"))
+    pred = elastic.predict(X_test_scaled)
+    #pickle.dump(elastic, open("../models/Elastic_Net_model.pkl", "wb"))
+    return elastic, pred
 
-    # ==========================================================
-    # 1. Random Forest
-    # ==========================================================
+# ==========================================================
+# funcion para entrenar Random Forest 
+# ==========================================================
+def entrenar_RF(X_train, X_test, y_train):
     rf = RandomForestRegressor(
         n_estimators=100,
         max_depth=10,
@@ -101,12 +113,14 @@ def entrnar_modelos(df):
         random_state=42
     )
     rf.fit(X_train, y_train)
-    y_pred_rf = rf.predict(X_test)
-    pickle.dump(rf, open("../models/Random_Forest_model.pkl", "wb"))
-    
-    # ==========================================================
-    # 2. Gradient Boosting
-    # ==========================================================
+    pred = rf.predict(X_test)
+    #pickle.dump(rf, open("../models/Random_Forest_model.pkl", "wb")) 
+    return rf, pred
+
+# ==========================================================
+# funcion para entrenar Gradient Boosting
+# ==========================================================
+def entrenar_GB(X_train, X_test, y_train):
     gb = GradientBoostingRegressor(
         n_estimators=100,
         learning_rate=0.1,
@@ -114,104 +128,14 @@ def entrnar_modelos(df):
         random_state=42
     )
     gb.fit(X_train, y_train)
-    y_pred_gb = gb.predict(X_test)
-    pickle.dump(gb, open("../models/Gradient_Boosting_model.pkl", "wb"))
+    pred = gb.predict(X_test)
+    #pickle.dump(gb, open("../models/Gradient_Boosting_model.pkl", "wb"))
+    return gb, pred
 
-    # ==========================================================
-    # 3. Decision Tree
-    # ==========================================================
-    tree = DecisionTreeRegressor(
-        max_depth=10,
-        min_samples_split=10,
-        random_state=42
-    )
-    tree.fit(X_train, y_train)
-    y_pred_tree = tree.predict(X_test)
-    pickle.dump(tree, open("../models/Decision_Tree_model.pkl", "wb"))
-    
-    # ==========================================================
-    # Configuración mejorada de Gradient Boosting
-    # ==========================================================
-    gb_better = GradientBoostingRegressor(
-        n_estimators=300,           # ↑ Más árboles
-        learning_rate=0.08,         # ↓ Tasa de aprendizaje más baja
-        max_depth=6,                # ↑ Profundidad moderada
-        min_samples_split=10,       # Evitar sobreajuste
-        min_samples_leaf=5,         # Regularización
-        subsample=0.8,              # Stochastic Gradient Boosting
-        max_features='sqrt',        # Usar sqrt(n_features) en cada split
-        random_state=42,
-        n_iter_no_change=10,        # Parada temprana
-        validation_fraction=0.1     # Fracción para validación
-    )
-    gb_better.fit(X_train, y_train)
-    y_pred_gb = gb_better.predict(X_test)
-    pickle.dump(gb_better, open("../models/GB_improved_model.pkl", "wb"))
-    
-    # ==========================================================
-    # Gradient Boosting con GridSearch
-    # ==========================================================
-    param_dist = {
-    'n_estimators': randint(100, 400),
-    'learning_rate': uniform(0.01, 0.2),
-    'max_depth': randint(3, 8),
-    'min_samples_split': randint(10, 30),
-    'min_samples_leaf': randint(4, 20),
-    'subsample': uniform(0.7, 0.3),
-    'max_features': ['sqrt', 'log2', 0.5, 0.7]
-    }
-
-    gb = GradientBoostingRegressor(random_state=42)
-
-    random_search = RandomizedSearchCV(
-        estimator=gb,
-        param_distributions=param_dist,
-        n_iter=50,
-        scoring='neg_mean_squared_error',
-        cv=3,
-        n_jobs=-1,
-        random_state=42,
-        verbose=1
-    )
-    random_search.fit(X_train, y_train)
-    best_model = random_search.best_estimator_
-    bgrs_pred = best_model.predict(X_test)
-    pickle.dump(best_model, open("../models/GB_withGS_model.pkl", "wb"))
-    
-    # ==========================================================
-    # Gradient Boosting with Pipe
-    # ==========================================================
-    pipeline = Pipeline([
-    ('feature_selection', SelectKBest(f_regression, k=20)), 
-    ('regressor', GradientBoostingRegressor(
-        n_estimators=150,
-        learning_rate=0.1,
-        max_depth=4,
-        random_state=42
-    ))])
-
-    pipe_params = {
-        'feature_selection__k': [15, 20, 25],
-        'regressor__n_estimators': [100, 150],
-        'regressor__max_depth': [3, 4]
-    }
-
-    grid_search = GridSearchCV(
-        pipeline,
-        pipe_params,
-        cv=5,
-        scoring='r2',
-        n_jobs=-1,
-        verbose=1
-    )
-
-    grid_search.fit(X_train, y_train)
-    gs_pred = grid_search.predict(X_test)
-    pickle.dump(grid_search, open("../models/GB_withPipe_model.pkl", "wb"))
-    
-    # ==========================================================
-    # Light Gradient Boosting
-    # ==========================================================
+# ==========================================================
+# funcion para entrenar LightGB
+# ==========================================================
+def entrenar_lgb(X_train, X_test, y_train, y_test):
     train_data = lgb.Dataset(X_train, label=y_train)
     test_data = lgb.Dataset(X_test, label=y_test, reference=train_data)
     
@@ -239,12 +163,14 @@ def entrnar_modelos(df):
         num_boost_round=3000,
         callbacks=[lgb.early_stopping(200), lgb.log_evaluation(100)]
     )
-    y_pred_lgb = model_lgb.predict(X_test)
-    pickle.dump(model_lgb, open("../models/LightGB_model.pkl", "wb"))
-    
-    # ==========================================================
-    # XGBoost
-    # ==========================================================
+    pred = model_lgb.predict(X_test)
+    #pickle.dump(model_lgb, open("../models/LightGB_model.pkl", "wb"))
+    return model_lgb, pred
+
+# ==========================================================
+# funcion para entrenar XGBoost
+# ==========================================================
+def entrenar_XGB(X_train, X_test, y_train, y_test):
     # Convertir a formato DMatrix (óptimo para XGBoost)
     dtrain = xgb.DMatrix(X_train, label=y_train)
     dtest = xgb.DMatrix(X_test, label=y_test)
@@ -274,12 +200,14 @@ def entrnar_modelos(df):
     )
     
     dtest = xgb.DMatrix(X_test)
-    y_pred_xgb = model_xgb.predict(dtest)
-    pickle.dump(model_xgb, open("../models/XGBoost_model.pkl", "wb"))
-    
-    # ==========================================================
-    # No Supervisado (PCA)
-    # ==========================================================
+    pred = model_xgb.predict(dtest)
+    #pickle.dump(model_xgb, open("../models/XGBoost_model.pkl", "wb"))
+    return model_xgb, pred
+
+# ==========================================================
+# funcion para entrenar modelo No Supervisado
+# ==========================================================
+def entrenar_noSuperv(df, X, y):
     # Escalar
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
@@ -337,6 +265,6 @@ def entrnar_modelos(df):
         verbose_eval=100
     )
 
-    y_pred = model_xgb.predict(dtest)
-    pickle.dump(model_xgb, open("../models/XGB_NoSuperv_model.pkl", "wb"))
-        
+    pred = model_xgb.predict(dtest)
+    #pickle.dump(model_xgb, open("../models/XGB_NoSuperv_model.pkl", "wb"))
+    return model_xgb, pred

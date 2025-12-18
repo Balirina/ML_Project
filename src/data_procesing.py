@@ -1,7 +1,6 @@
 import pandas as pd
 from datetime import datetime
 
-
 def normalizar_por_marca(grupo):
     # Normalizar precios por marca
     precio_min = grupo['Price'].min()
@@ -38,13 +37,16 @@ def codificar_Brand_Model(df):
     # Mapear al DataFrame original
     codigo_map = precio_promedio_modelo.set_index(['Brand_c', 'Model'])['Brand_Model_code'].to_dict()
     df['Brand_Model_code'] = df.apply(lambda r: codigo_map[(r['Brand_c'], r['Model'])], axis=1)
+    
+    print("==="*20)
+    print("✅ La marca y el modelo codificados correctamente! ")
     return df
 
 def rellenar_nans(df):
     # borrar las lineas que tienen más de 3 columnas vacias
     df = df[df.isna().sum(axis=1) <= 3]
     
-    # cambiar en numero de puertas a 5 donde por error se guardo 35
+    # cambiar el numero de puertas a 5 donde por error se guardo 35
     df.loc[df['Doors'] == 35, 'Doors'] = 5
 
     # cambiar el año a 2025 y los kilometros a 0 si no existen y el coche es de tipo nuevo
@@ -56,14 +58,12 @@ def rellenar_nans(df):
     df = df.dropna(subset= ['Model'])
 
     df['Year'] = pd.to_numeric(df['Year'], errors='coerce')
+    
     # Si es antiguo (<=2013) y no tiene Gearbox, asumir Manual
     df.loc[df['Gearbox'].isna() & (df['Year'] <= 2013), 'Gearbox'] = 'Manual'
 
     # Si es moderno (>2013) y no tiene Gearbox, asumir Automatic
     df.loc[df['Gearbox'].isna() & (df['Year'] > 2013), 'Gearbox'] = 'Automatic'
-
-    # añadir la moda para el tipo de combustible
-    df['Fuel'] = df['Fuel'].fillna(df['Fuel'].mode()[0])
 
     # Si no tiene Drivetrain y los caballos son inferiores a 200, asumir que el Drivetrain es Front
     df.loc[df['Drivetrain'].isna() & (df['Power'] <= 200), 'Drivetrain'] = 'Front'
@@ -73,6 +73,7 @@ def rellenar_nans(df):
     df = df.dropna(subset= ['Drivetrain'])
 
     # sustituir NaN con la moda
+    df['Fuel'] = df['Fuel'].fillna(df['Fuel'].mode()[0])
     df['Seats'] = df['Seats'].fillna(df['Seats'].mode()[0])
     df['Doors'] = df['Doors'].fillna(df['Doors'].mode()[0])
     df['Upholstery'] = df['Upholstery'].fillna(df['Upholstery'].mode()[0])
@@ -84,6 +85,9 @@ def rellenar_nans(df):
     # Transformar la columna Year a una columna que represente la edad del coche
     current_year = datetime.now().year
     df['Car_Age'] = current_year - df['Year']
+    
+    print("==="*20)
+    print("✅ Los nullos han sido rellenado correctamente! ")
     return df
 
 def mappear_object_columnas(df):
@@ -113,6 +117,9 @@ def mappear_object_columnas(df):
 
     mapping = {cat: i for i, cat in enumerate(df['Body Type'].value_counts().index)}
     df['Body_Type_c'] = df['Body Type'].map(mapping)
+    
+    print("==="*20)
+    print("✅ El mappeo se ha hecho correctamente! ")
     return df
     
 def hacer_feature_engineering():

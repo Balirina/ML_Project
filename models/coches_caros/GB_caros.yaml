@@ -1,0 +1,81 @@
+# ========== METADATOS DEL PROYECTO ==========
+project:
+  name: "ML_Project/Car_Price_Prediction"
+  author: "Irina Balica"
+  version: "1.0.0"
+  date_created: "2025-12-15"
+  description: "Modelo Gradient Boosting optimizado para predicción de precios de coches caros"
+
+# ========== CONFIGURACIÓN DE DATOS ==========
+data:
+  paths:
+    raw: "data/raw/cars.csv"
+    processed: "data/processed/car_prices_procc.csv"
+  
+  preprocessing:
+    test_size: 0.2
+    random_state: 42
+    target_column: "Price"
+    
+  features:
+      - "Brand"
+      - "Model"
+      - "Price"
+      - "Country"
+      - "Kilometers"
+      - "Gearbox"
+      - "Year"
+      - "Fuel"
+      - "Power"
+      - "Seller"
+      - "Body Type"
+      - "Type"
+      - "Drivetrain"
+      - "Seats"
+      - "Doors"
+      - "Cylinders"
+      - "Color"
+      - "Upholstery"
+
+# ========== PARÁMETROS DEL MODELO XGBOOST ==========
+model:
+  name: "gb"
+  type: "GradientBoostingRegressor"
+  
+  # Hiperparámetros optimizados
+  params:
+    n_estimators=100,
+    learning_rate=0.1,
+    max_depth=5,
+    random_state=42
+
+# ========== EVALUACIÓN ==========
+evaluation:
+  metrics:
+    - "MAE"
+    - "RMSE" 
+    - "R2"
+    - "MAPE"
+
+# ========== GUARDADO DEL MODELO ==========
+persistence:
+  model:
+    format: "pkl"
+    path: "models/cochescaros/Best_model.pkl"
+    versioned: true
+
+
+# ========== ENTORNO ==========
+environment:
+  python_version: "3.9+"
+  dependencies:
+    - "pandas>=1.4.0"
+    - "numpy>=1.21.0"
+    - "xgboost>=1.6.0"
+    - "scikit-learn>=1.0.0"
+    - "matplotlib>=3.5.0"
+    - "seaborn>=0.11.0"
+  
+  gpu:
+    enabled: false
+    device: "cuda:0"  # si se usa GPU
